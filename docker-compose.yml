@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  triton:
+    image: nvcr.io/nvidia/tritonserver:24.03-py3
+    container_name: triton_server
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - ./models:/models
+    command: >
+      tritonserver
+      --model-repository=/models
+      --strict-model-config=true
+      --model-control-mode=none
+    ports:
+      - "8000:8000"  # HTTP
+      - "8001:8001"  # gRPC
+      - "8002:8002"  # metrics

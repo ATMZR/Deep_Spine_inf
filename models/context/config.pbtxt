@@ -1,0 +1,30 @@
+name: "context"
+platform: "onnxruntime_onnx"
+max_batch_size: 1
+
+input [
+  {
+    name: "input"
+    data_type: TYPE_FP32
+    dims: [1, 512, 24]  # CHW без batch оси
+  }
+]
+
+output [
+  {
+    name: "output"  # Название выходного тензора
+    data_type: TYPE_FP32
+    dims: [1, 512, 24]  # CHW
+  }
+]
+
+instance_group [
+  {
+    kind: KIND_CPU
+    count: -1
+  }
+]
+
+optimization {
+    graph { level: 2 }
+}

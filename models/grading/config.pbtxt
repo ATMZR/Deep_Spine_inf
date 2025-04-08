@@ -1,0 +1,77 @@
+name: "grading"
+platform: "onnxruntime_onnx"
+max_batch_size: 1
+input [
+  {
+    name: "input"
+    data_type: TYPE_FP32
+    dims: [ 1, 9, 112, 224 ]
+  }
+]
+output [
+  {
+    name: "output_pf"
+    data_type: TYPE_FP32
+    dims: [ 5 ]
+  },
+  {
+    name: "output_nar"
+    data_type: TYPE_FP32
+    dims: [ 4 ]
+  },
+  {
+    name: "output_ccs"
+    data_type: TYPE_FP32
+    dims: [ 4 ]
+  },
+  {
+    name: "output_spn"
+    data_type: TYPE_FP32
+    dims: [ 3 ]
+  },
+  {
+    name: "output_ued"
+    data_type: TYPE_FP32
+    dims: [ 2 ]
+  },
+  {
+    name: "output_led"
+    data_type: TYPE_FP32
+    dims: [ 2 ]
+  },
+  {
+    name: "output_umc"
+    data_type: TYPE_FP32
+    dims: [ 2 ]
+  },
+  {
+    name: "output_lmc"
+    data_type: TYPE_FP32
+    dims: [ 2 ]
+  },
+  {
+    name: "output_fsl"
+    data_type: TYPE_FP32
+    dims: [ 2 ]
+  },
+  {
+    name: "output_fsr"
+    data_type: TYPE_FP32
+    dims: [ 2 ]
+  },
+  {
+    name: "output_hrn"
+    data_type: TYPE_FP32
+    dims: [ 2 ]
+  }
+]
+instance_group [
+  {
+    kind: KIND_CPU
+    count: -1
+  }
+]
+
+optimization {
+    graph { level: 2 }
+}
