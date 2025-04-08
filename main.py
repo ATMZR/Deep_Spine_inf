@@ -1,11 +1,10 @@
 import logging
 import numpy as np
-from matplotlib.patches import Polygon
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
 from deepspine import DeepSpine
-import io
+
 from PIL import Image
+import cv2
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -25,23 +24,26 @@ def run_deepspine_pipeline(scan_volume, pixel_spacing, slice_thickness):
     images_with_masks = []
 
     for slice_idx in range(scan_volume.shape[-1]):
-        fig, ax = plt.subplots(figsize=(6, 6))
-        ax.imshow(scan_volume[:,:,slice_idx], cmap='gray')
-        ax.set_title(f'Slice {slice_idx+1}')
-        ax.axis('off')
+        # Извлекаем срез и нормализуем в 8-битное изображение
+        slice_img = scan_volume[:, :, slice_idx]
+        norm_img = cv2.normalize(slice_img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        color_img = cv2.cvtColor(norm_img, cv2.COLOR_GRAY2BGR)
+
         for vert_dict in vert_dicts:
             if slice_idx in vert_dict['slice_nos']:
                 poly_idx = int(vert_dict['slice_nos'].index(slice_idx))
-                poly = np.array(vert_dict['polys'][poly_idx])
-                ax.add_patch(Polygon(poly, ec='y', fc='none'))
-                ax.text(np.mean(poly[:,0]), np.mean(poly[:,1]), vert_dict['predicted_label'], c='y', ha='center', va='center')
+                poly = np.array(vert_dict['polys'][poly_idx], dtype=np.int32)
 
-        canvas = FigureCanvas(fig)
-        buf = io.BytesIO()
-        canvas.print_png(buf)
-        buf.seek(0)
-        images_with_masks.append(Image.open(buf).convert('RGB'))
-        plt.close(fig)
+                # Рисуем полигон (желтый контур)
+                cv2.polylines(color_img, [poly], isClosed=True, color=(0, 255, 255), thickness=2)
+
+                # Добавляем текст
+                cx, cy = int(np.mean(poly[:, 0])), int(np.mean(poly[:, 1]))
+                label = str(vert_dict['predicted_label'])
+                cv2.putText(color_img, label, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
+
+        # Преобразуем в PIL Image, если нужно
+        images_with_masks.append(Image.fromarray(color_img))
 
     ivd_dicts = spnt.get_ivds_from_vert_dicts(vert_dicts, scan_volume)
     ivd_grades = spnt.grade_ivds(ivd_dicts)
