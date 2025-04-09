@@ -1,6 +1,6 @@
 import logging
 import numpy as np
-
+import os
 from deepspine import DeepSpine
 
 from PIL import Image
@@ -23,6 +23,9 @@ def run_deepspine_pipeline(scan_volume, pixel_spacing, slice_thickness):
 
     images_with_masks = []
 
+    save_dir = r'results/images'
+    os.makedirs(save_dir, exist_ok=True)
+
     for slice_idx in range(scan_volume.shape[-1]):
         # Извлекаем срез и нормализуем в 8-битное изображение
         slice_img = scan_volume[:, :, slice_idx]
@@ -42,11 +45,17 @@ def run_deepspine_pipeline(scan_volume, pixel_spacing, slice_thickness):
                 label = str(vert_dict['predicted_label'])
                 cv2.putText(color_img, label, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
 
+        # Сохраняем изображение
+        save_path = os.path.join(save_dir, f'slice_{slice_idx:03d}.png')
+        cv2.imwrite(save_path, color_img)
+
         # Преобразуем в PIL Image, если нужно
         images_with_masks.append(Image.fromarray(color_img))
 
     ivd_dicts = spnt.get_ivds_from_vert_dicts(vert_dicts, scan_volume)
     ivd_grades = spnt.grade_ivds(ivd_dicts)
+
+    ivd_grades.to_csv(r'results/ivd_grades.csv', index=False)
 
     return images_with_masks, ivd_grades
 

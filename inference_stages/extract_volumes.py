@@ -1,5 +1,9 @@
+import torch
+from shapely.geometry import Polygon as shapelyPolygon
+from shapely.geometry import Point as shapelyPoint
 import numpy as np
 import cv2
+import torch.nn.functional as F
 
 
 def extract_volumes(
@@ -84,3 +88,71 @@ def straighten_bb(scan, bounding_box):
             pdb.set_trace()
 
     return rotated_scan, new_bounding_box
+
+def resize_bb(
+    vol,
+    output_shape=(224, 224, 16),
+    only_2d_interpolation=False,
+    resampling_mode="bicubic",
+):
+    """
+    Resizes a 3d tensor to be of size `output_shape` and transforms a bounding box into the new shape
+
+    Inputs
+    ------
+    vol: np.array
+        the 3d tensor to be resized
+    output_shape:tuple
+        the 3d shape to make interpolate vol to
+    Outputs
+    -------
+    new_vol: np.array
+        the new, interpolated volume of size output shape
+    """
+    orig_vol_shape = vol.shape
+    vol = torch.einsum("ijk->kij", torch.tensor(vol)).unsqueeze(1).type(torch.double)
+    if resampling_mode in ["bicubic", "linear", "bicubic"]:
+        new_vol = F.interpolate(
+            vol,
+            (output_shape[0], output_shape[1]),
+            mode=resampling_mode,
+            align_corners=False,
+        ).squeeze(1)
+    else:
+        new_vol = F.interpolate(
+            vol,
+            (output_shape[0], output_shape[1]),
+            mode=resampling_mode,
+        ).squeeze(1)
+
+    new_vol = torch.einsum("kij->ijk", new_vol)
+
+    new_new_vol = torch.zeros(output_shape)
+
+    ratio = float(new_vol.shape[-1]) / float(output_shape[-1])
+    for i in range(output_shape[-1]):
+        interp_val = i * ratio
+        high_slice = int(np.ceil(interp_val))
+        low_slice = int(np.floor(interp_val))
+        if high_slice >= new_vol.shape[-1]:
+            high_slice = new_vol.shape[-1] - 1
+        if low_slice >= new_vol.shape[-1]:
+            low_slice = new_vol.shape[-1] - 1
+        if high_slice == low_slice:
+            new_new_vol[:, :, i] = new_vol[:, :, high_slice]
+        else:
+            new_new_vol[:, :, i] = new_vol[:, :, high_slice] * np.abs(
+                low_slice - interp_val
+            ) + new_vol[:, :, low_slice] * np.abs(high_slice - interp_val)
+
+    arr_percentile = np.percentile(new_new_vol[:, :], 95)
+    min_ = new_new_vol.min()
+    for slice_ in range(new_new_vol.shape[-1]):
+        new_new_vol[:, :, slice_] = (new_new_vol[:, :, slice_] - min_) / (
+            arr_percentile + 0.000001
+        )
+
+    if only_2d_interpolation:
+        new_new_vol = torch.tensor(new_vol)
+    # change this to new_new_vol to get 16  slice volumes back
+    return new_new_vol
