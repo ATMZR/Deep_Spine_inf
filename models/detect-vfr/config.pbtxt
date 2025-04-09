@@ -1,6 +1,6 @@
 name: "detect-vfr"
 platform: "onnxruntime_onnx"
-max_batch_size: 4
+max_batch_size: 20
 input [
   {
     name: "input"
